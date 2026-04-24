@@ -43,9 +43,15 @@ module.exports = grammar({
             $.list,
             $.fenced_code_block,
             $._blank_line,
+            $.directive_comment,
             $.html_block,
             $.link_reference_definition,
             common.EXTENSION_PIPE_TABLE ? $.pipe_table : choice(),
+        ),
+
+        directive_comment: $ => seq(
+            $._directive_comment_start,
+            choice($._newline, $._eof),
         ),
         section: $ => choice($._section1, $._section2, $._section3, $._section4, $._section5, $._section6),
         _section1: $ => prec.right(seq(
@@ -580,6 +586,7 @@ module.exports = grammar({
 
         $._pipe_table_start,
         $._pipe_table_line_ending,
+        $._directive_comment_start,
     ],
     precedences: $ => [
         [$._setext_heading1, $._block],

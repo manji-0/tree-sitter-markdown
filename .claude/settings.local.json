@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk ls *)",
+      "Bash(rtk git *)",
+      "Bash(tree-sitter --version)",
+      "Bash(rustc --version)",
+      "Bash(cargo --version)",
+      "Bash(devbox version *)",
+      "Bash(devbox search *)",
+      "Bash(devbox init *)",
+      "Bash(devbox install *)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "code-review-graph"
+  ]
+}

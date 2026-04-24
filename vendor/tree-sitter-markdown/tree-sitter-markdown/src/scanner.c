@@ -54,6 +54,7 @@ typedef enum {
     PLUS_METADATA,
     PIPE_TABLE_START,
     PIPE_TABLE_LINE_ENDING,
+    DIRECTIVE_COMMENT_START,
 } TokenType;
 
 // Description of a block on the block stack.
@@ -169,6 +170,7 @@ static const bool paragraph_interrupt_symbols[] = {
     false, // PLUS_METADATA,
     true,  // PIPE_TABLE_START,
     false, // PIPE_TABLE_LINE_ENDING,
+    true,  // DIRECTIVE_COMMENT_START,
 };
 
 // State bitflags used with `Scanner.state`
@@ -934,6 +936,41 @@ static bool parse_minus(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
     return false;
 }
 
+// Try to match a directive keyword starting at the current lookahead position,
+// consuming characters one by one. Returns true if the full keyword is matched
+// and is followed by whitespace or '--'.
+static bool try_match_directive_keyword(Scanner *s, TSLexer *lexer,
+                                        const char *keyword) {
+    for (size_t i = 0; keyword[i] != '\0'; i++) {
+        if (lexer->lookahead != (uint32_t)keyword[i]) return false;
+        advance(s, lexer);
+    }
+    // keyword matched; must be followed by whitespace or '-' (start of '-->')
+    return lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
+           lexer->lookahead == '-';
+}
+
+// Consume characters until '-->' is found on the same line.
+// Returns true if '-->' was found and consumed, false otherwise.
+static bool consume_to_directive_close(Scanner *s, TSLexer *lexer) {
+    while (lexer->lookahead != '\n' && lexer->lookahead != '\r' &&
+           lexer->lookahead != '\0') {
+        if (lexer->lookahead == '-') {
+            advance(s, lexer);
+            if (lexer->lookahead == '-') {
+                advance(s, lexer);
+                if (lexer->lookahead == '>') {
+                    advance(s, lexer);
+                    return true;
+                }
+            }
+        } else {
+            advance(s, lexer);
+        }
+    }
+    return false;
+}
+
 static bool parse_html_block(Scanner *s, TSLexer *lexer,
                              const bool *valid_symbols) {
     if (!(valid_symbols[HTML_BLOCK_1_START] ||
@@ -955,16 +992,59 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
         return true;
     }
     if (lexer->lookahead == '!') {
-        // could be block 2
+        // could be block 2 (HTML comment) or a directive comment
         advance(s, lexer);
         if (lexer->lookahead == '-') {
             advance(s, lexer);
-            if (lexer->lookahead == '-' && valid_symbols[HTML_BLOCK_2_START]) {
+            if (lexer->lookahead == '-' &&
+                (valid_symbols[HTML_BLOCK_2_START] ||
+                 valid_symbols[DIRECTIVE_COMMENT_START])) {
                 advance(s, lexer);
-                lexer->result_symbol = HTML_BLOCK_2_START;
-                if (!s->simulate)
-                    push_block(s, ANONYMOUS);
-                return true;
+                // Fix token end at '<!--' so we can peek ahead safely.
+                lexer->mark_end(lexer);
+                // Try to match a directive keyword if the token is valid.
+                if (valid_symbols[DIRECTIVE_COMMENT_START]) {
+                    // Skip optional whitespace.
+                    while (lexer->lookahead == ' ' ||
+                           lexer->lookahead == '\t') {
+                        advance(s, lexer);
+                    }
+                    bool directive_matched = false;
+                    switch (lexer->lookahead) {
+                        case 'c':
+                            directive_matched = try_match_directive_keyword(
+                                s, lexer, "constrained-by");
+                            break;
+                        case 'b':
+                            directive_matched = try_match_directive_keyword(
+                                s, lexer, "blocked-by");
+                            break;
+                        case 's':
+                            directive_matched = try_match_directive_keyword(
+                                s, lexer, "supersedes");
+                            break;
+                        case 'd':
+                            directive_matched = try_match_directive_keyword(
+                                s, lexer, "derived-from");
+                            break;
+                        default:
+                            break;
+                    }
+                    if (directive_matched &&
+                        consume_to_directive_close(s, lexer)) {
+                        lexer->mark_end(lexer);
+                        lexer->result_symbol = DIRECTIVE_COMMENT_START;
+                        return true;
+                    }
+                }
+                // Not a directive (or not valid): emit as a regular HTML comment block.
+                if (valid_symbols[HTML_BLOCK_2_START]) {
+                    lexer->result_symbol = HTML_BLOCK_2_START;
+                    if (!s->simulate)
+                        push_block(s, ANONYMOUS);
+                    return true;
+                }
+                return false;
             }
         } else if ('A' <= lexer->lookahead && lexer->lookahead <= 'Z' &&
                    valid_symbols[HTML_BLOCK_4_START]) {
