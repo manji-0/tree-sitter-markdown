@@ -14,13 +14,16 @@
     ],
     "scripts": {
       "generate": [
-        "cd vendor/tree-sitter-markdown/tree-sitter-markdown && tree-sitter generate"
+        "tree-sitter generate"
       ],
       "test-grammar": [
-        "cd vendor/tree-sitter-markdown/tree-sitter-markdown && tree-sitter test"
+        "tree-sitter test"
       ],
-      "build": ["cargo build"],
-      "test": ["cargo test"]
+      "build": ["cargo build -p md-depgraph"],
+      "test": ["cargo test -p md-depgraph"],
+      "extract": ["cargo run -p md-depgraph --quiet -- extract"],
+      "validate": ["cargo run -p md-depgraph --quiet -- validate"],
+      "graph": ["cargo run -p md-depgraph --quiet -- graph"]
     }
   }
 }
