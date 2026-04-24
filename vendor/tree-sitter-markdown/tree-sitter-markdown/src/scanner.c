@@ -942,7 +942,7 @@ static bool parse_minus(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
 static bool try_match_directive_keyword(Scanner *s, TSLexer *lexer,
                                         const char *keyword) {
     for (size_t i = 0; keyword[i] != '\0'; i++) {
-        if (lexer->lookahead != (uint32_t)keyword[i]) return false;
+        if (lexer->lookahead != (uint32_t)(unsigned char)keyword[i]) return false;
         advance(s, lexer);
     }
     // keyword matched; must be followed by whitespace or '-' (start of '-->')

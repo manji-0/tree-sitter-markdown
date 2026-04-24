@@ -1,0 +1,18 @@
+[package]
+name = "md-depgraph"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tree-sitter = { workspace = true }
+tree-sitter-md = { path = "../../vendor/tree-sitter-markdown", features = ["parser"] }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ignore = { workspace = true }
+clap = { workspace = true }
+
+[[bin]]
+name = "md-depgraph"
+path = "src/bin/md-depgraph.rs"
