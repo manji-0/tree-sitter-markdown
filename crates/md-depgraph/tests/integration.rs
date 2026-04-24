@@ -4,6 +4,7 @@ use md_depgraph::{extract, graph::Graph, resolve, walker, DirectiveKind, Resolve
 
 const FIXTURES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/project");
 const MULTI: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/multi");
+const DUPS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/duplicates");
 
 // ---------------------------------------------------------------------------
 // project/ fixtures (single-file focused)
@@ -245,6 +246,94 @@ fn validate_valid_cross_file_refs_pass() {
                 .unwrap_or_else(|e| panic!("unexpected validation error: {e}"));
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// duplicates/ fixtures — same-name sections within one document
+// ---------------------------------------------------------------------------
+
+#[test]
+fn dup_sections_source_slugs_are_suffixed() {
+    let path = Path::new(DUPS).join("dup.md");
+    let directives = extract::extract_file(&path).unwrap();
+
+    // directive 1 is under "## API" (before "### Usage")
+    // directive 2 is under "## Examples" (before second "### Usage")
+    let d1 = directives
+        .iter()
+        .find(|d| d.kind == DirectiveKind::DerivedFrom)
+        .unwrap();
+    assert_eq!(d1.source_section.as_deref(), Some("api"));
+
+    let d2 = directives
+        .iter()
+        .find(|d| d.kind == DirectiveKind::ConstrainedBy)
+        .unwrap();
+    assert_eq!(d2.source_section.as_deref(), Some("examples"));
+}
+
+#[test]
+fn dup_sections_target_first_occurrence_is_unsuffixed() {
+    let path = Path::new(DUPS).join("dup.md");
+    let directives = extract::extract_file(&path).unwrap();
+
+    let d1 = directives
+        .iter()
+        .find(|d| d.kind == DirectiveKind::DerivedFrom)
+        .unwrap();
+    // <!-- derived-from #usage --> → first "### Usage" = slug "usage"
+    assert_eq!(d1.target_section.as_deref(), Some("usage"));
+    assert!(d1.target_file.is_none());
+}
+
+#[test]
+fn dup_sections_target_second_occurrence_is_suffixed() {
+    let path = Path::new(DUPS).join("dup.md");
+    let directives = extract::extract_file(&path).unwrap();
+
+    let d2 = directives
+        .iter()
+        .find(|d| d.kind == DirectiveKind::ConstrainedBy)
+        .unwrap();
+    // <!-- constrained-by #usage-1 --> → second "### Usage" = slug "usage-1"
+    assert_eq!(d2.target_section.as_deref(), Some("usage-1"));
+}
+
+#[test]
+fn dup_sections_validate_passes_for_both_targets() {
+    let path = Path::new(DUPS).join("dup.md");
+    let directives = extract::extract_file(&path).unwrap();
+
+    for d in &directives {
+        // Same-file references have target_file == None; resolve against source file.
+        let target_file = d
+            .target_file
+            .as_ref()
+            .unwrap_or(&d.source_file);
+        resolve::validate_target(target_file, d.target_section.as_deref())
+            .unwrap_or_else(|e| panic!("unexpected error for {:?}: {e}", d.target_section));
+    }
+}
+
+#[test]
+fn dup_sections_graph_has_distinct_nodes_for_each_usage() {
+    let path = Path::new(DUPS).join("dup.md");
+    let directives = extract::extract_file(&path).unwrap();
+    let graph = Graph::from_directives(&directives);
+
+    let usage_nodes: Vec<_> = graph
+        .nodes
+        .iter()
+        .filter(|n| {
+            n.section.as_deref() == Some("usage")
+                || n.section.as_deref() == Some("usage-1")
+        })
+        .collect();
+    assert_eq!(
+        usage_nodes.len(),
+        2,
+        "expected two distinct usage nodes, got: {usage_nodes:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------

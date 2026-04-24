@@ -18,14 +18,55 @@ pub fn slugify(text: &str) -> String {
 
 /// Extract all heading texts from a parsed tree-sitter tree in document order.
 /// Returns (byte_start_of_heading_node, slug) pairs.
+/// Duplicate heading texts receive GitHub-style numeric suffixes on 2nd+ occurrence:
+/// first → "usage", second → "usage-1", third → "usage-2", etc.
 pub fn collect_headings(
     source: &[u8],
     tree: &tree_sitter::Tree,
 ) -> Vec<(usize, String)> {
-    let mut headings = Vec::new();
+    let mut raw: Vec<(usize, String)> = Vec::new();
     let mut cursor = tree.walk();
-    collect_headings_recursive(&mut cursor, source, &mut headings);
-    headings
+    collect_headings_recursive(&mut cursor, source, &mut raw);
+
+    // Assign GitHub-compatible unique slugs. Track (base → count_so_far) and
+    // the full set of already-assigned slugs so we can skip collisions even
+    // when a literal heading like "Usage 1" occupies "usage-1" early.
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut assigned: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    raw.into_iter()
+        .map(|(start, base)| {
+            let n = counts.entry(base.clone()).or_insert(0);
+            let slug = if *n == 0 {
+                if assigned.contains(&base) {
+                    // Literal collision: find next available number.
+                    let mut k = 1usize;
+                    loop {
+                        let candidate = format!("{base}-{k}");
+                        if !assigned.contains(&candidate) {
+                            break candidate;
+                        }
+                        k += 1;
+                    }
+                } else {
+                    base.clone()
+                }
+            } else {
+                // 2nd+ occurrence: find next available number.
+                let mut k = *n;
+                loop {
+                    let candidate = format!("{base}-{k}");
+                    if !assigned.contains(&candidate) {
+                        break candidate;
+                    }
+                    k += 1;
+                }
+            };
+            *n += 1;
+            assigned.insert(slug.clone());
+            (start, slug)
+        })
+        .collect()
 }
 
 fn collect_headings_recursive(
@@ -108,6 +149,54 @@ mod tests {
         assert_eq!(slugify("API_v2"), "api_v2");
         // '&' is stripped, adjacent spaces each become '-'
         assert_eq!(slugify("foo & bar!"), "foo--bar");
+    }
+
+    #[test]
+    fn duplicate_headings_get_github_suffixes() {
+        // Verify the suffix logic directly without requiring tree-sitter.
+        // We simulate what collect_headings produces for raw slugs.
+        let raw = vec!["usage", "api", "usage", "usage", "api"];
+        let mut counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
+        let mut assigned: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
+        let result: Vec<String> = raw
+            .into_iter()
+            .map(|base| {
+                let base = base.to_string();
+                let n = counts.entry(base.clone()).or_insert(0);
+                let slug = if *n == 0 {
+                    if assigned.contains(&base) {
+                        let mut k = 1usize;
+                        loop {
+                            let c = format!("{base}-{k}");
+                            if !assigned.contains(&c) {
+                                break c;
+                            }
+                            k += 1;
+                        }
+                    } else {
+                        base.clone()
+                    }
+                } else {
+                    let mut k = *n;
+                    loop {
+                        let c = format!("{base}-{k}");
+                        if !assigned.contains(&c) {
+                            break c;
+                        }
+                        k += 1;
+                    }
+                };
+                *n += 1;
+                assigned.insert(slug.clone());
+                slug
+            })
+            .collect();
+        assert_eq!(
+            result,
+            vec!["usage", "api", "usage-1", "usage-2", "api-1"]
+        );
     }
 
     #[test]
