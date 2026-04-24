@@ -1,0 +1,12 @@
+# devbox managed Rust/Rustup
+.cargo/
+.rustup/
+
+# Rust build artifacts
+target/
+
+# devbox
+.devbox/
+
+# tree-sitter wasm artifacts
+*.wasm

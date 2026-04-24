@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.17.2/.schema/devbox.schema.json",
+  "packages": [
+    "rustup@latest",
+    "nodejs@22",
+    "tree-sitter@0.25.10"
+  ],
+  "shell": {
+    "init_hook": [
+      "export CARGO_HOME=\"$PWD/.cargo\"",
+      "export RUSTUP_HOME=\"$PWD/.rustup\"",
+      "export PATH=\"$CARGO_HOME/bin:$PATH\"",
+      "rustup default stable 2>/dev/null || rustup toolchain install stable"
+    ],
+    "scripts": {
+      "generate": [
+        "cd vendor/tree-sitter-markdown/tree-sitter-markdown && tree-sitter generate"
+      ],
+      "test-grammar": [
+        "cd vendor/tree-sitter-markdown/tree-sitter-markdown && tree-sitter test"
+      ],
+      "build": ["cargo build"],
+      "test": ["cargo test"]
+    }
+  }
+}
