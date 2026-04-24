@@ -99,3 +99,39 @@ DIRECTIVE - HTML comment with unknown keyword is NOT a directive
 (document
   (section
     (html_block)))
+
+================================================================================
+DIRECTIVE - uppercase keywords are NOT directives (html_block)
+================================================================================
+
+<!-- CONSTRAINED-BY /docs/spec.md#section -->
+
+--------------------------------------------------------------------------------
+
+(document
+  (section
+    (html_block)))
+
+================================================================================
+DIRECTIVE - mixed-case keywords are NOT directives (html_block)
+================================================================================
+
+<!-- Derived-From #rationale -->
+
+--------------------------------------------------------------------------------
+
+(document
+  (section
+    (html_block)))
+
+================================================================================
+DIRECTIVE - multiple spaces between keyword and target still parsed as directive
+================================================================================
+
+<!-- constrained-by    /docs/spec.md#rationale -->
+
+--------------------------------------------------------------------------------
+
+(document
+  (section
+    (directive_comment)))

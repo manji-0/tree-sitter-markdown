@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust (fmt / clippy / test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: fmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        # Exclude vendored upstream crate — it contains clippy issues we don't control.
+        run: cargo clippy -p md-depgraph --all-targets -- -D warnings
+
+      - name: test
+        run: cargo test --workspace
+
+  grammar:
+    name: tree-sitter grammar tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install tree-sitter CLI
+        run: npm install -g tree-sitter-cli@0.25
+
+      - name: Run corpus tests
+        working-directory: vendor/tree-sitter-markdown/tree-sitter-markdown
+        run: tree-sitter test

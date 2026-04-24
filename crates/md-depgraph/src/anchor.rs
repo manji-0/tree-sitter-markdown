@@ -20,10 +20,7 @@ pub fn slugify(text: &str) -> String {
 /// Returns (byte_start_of_heading_node, slug) pairs.
 /// Duplicate heading texts receive GitHub-style numeric suffixes on 2nd+ occurrence:
 /// first → "usage", second → "usage-1", third → "usage-2", etc.
-pub fn collect_headings(
-    source: &[u8],
-    tree: &tree_sitter::Tree,
-) -> Vec<(usize, String)> {
+pub fn collect_headings(source: &[u8], tree: &tree_sitter::Tree) -> Vec<(usize, String)> {
     let mut raw: Vec<(usize, String)> = Vec::new();
     let mut cursor = tree.walk();
     collect_headings_recursive(&mut cursor, source, &mut raw);
@@ -127,14 +124,10 @@ fn heading_text(node: tree_sitter::Node<'_>, source: &[u8]) -> String {
 
 /// Given the list of (heading_byte_start, slug) pairs and the byte position of
 /// a directive, return the slug of the immediately preceding heading (if any).
-pub fn source_section_for(
-    headings: &[(usize, String)],
-    directive_start: usize,
-) -> Option<String> {
+pub fn source_section_for(headings: &[(usize, String)], directive_start: usize) -> Option<String> {
     headings
         .iter()
-        .filter(|(hstart, _)| *hstart < directive_start)
-        .last()
+        .rfind(|(hstart, _)| *hstart < directive_start)
         .map(|(_, slug)| slug.clone())
 }
 
@@ -156,10 +149,8 @@ mod tests {
         // Verify the suffix logic directly without requiring tree-sitter.
         // We simulate what collect_headings produces for raw slugs.
         let raw = vec!["usage", "api", "usage", "usage", "api"];
-        let mut counts: std::collections::HashMap<String, usize> =
-            std::collections::HashMap::new();
-        let mut assigned: std::collections::HashSet<String> =
-            std::collections::HashSet::new();
+        let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut assigned: std::collections::HashSet<String> = std::collections::HashSet::new();
         let result: Vec<String> = raw
             .into_iter()
             .map(|base| {
@@ -193,10 +184,7 @@ mod tests {
                 slug
             })
             .collect();
-        assert_eq!(
-            result,
-            vec!["usage", "api", "usage-1", "usage-2", "api-1"]
-        );
+        assert_eq!(result, vec!["usage", "api", "usage-1", "usage-2", "api-1"]);
     }
 
     #[test]
@@ -206,12 +194,34 @@ mod tests {
             (100, "impl".to_string()),
             (200, "outro".to_string()),
         ];
-        assert_eq!(
-            source_section_for(&headings, 150),
-            Some("impl".to_string())
-        );
+        assert_eq!(source_section_for(&headings, 150), Some("impl".to_string()));
         assert_eq!(source_section_for(&headings, 50), Some("intro".to_string()));
         // heading at byte 0 < directive at byte 5 → "intro" is the preceding heading
         assert_eq!(source_section_for(&headings, 5), Some("intro".to_string()));
+    }
+
+    #[test]
+    fn no_preceding_heading_returns_none() {
+        let headings = vec![(100, "intro".to_string())];
+        assert_eq!(source_section_for(&headings, 50), None);
+        assert_eq!(source_section_for(&headings, 0), None);
+    }
+
+    #[test]
+    fn slugify_cjk_characters_pass_through() {
+        // CJK characters satisfy is_alphanumeric(); to_ascii_lowercase() is a no-op for them.
+        assert_eq!(slugify("設計"), "設計");
+        assert_eq!(slugify("設計 方針"), "設計-方針");
+    }
+
+    #[test]
+    fn slugify_empty_string() {
+        assert_eq!(slugify(""), "");
+    }
+
+    #[test]
+    fn slugify_strips_special_characters() {
+        assert_eq!(slugify("foo!@#$%^"), "foo");
+        assert_eq!(slugify("---"), "---");
     }
 }

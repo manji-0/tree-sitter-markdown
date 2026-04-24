@@ -129,7 +129,11 @@ fn multi_doc_multiple_directives_in_one_section() {
         .iter()
         .filter(|d| d.source_section.as_deref() == Some("delta"))
         .collect();
-    assert_eq!(delta_dirs.len(), 2, "## Delta must have exactly 2 directives");
+    assert_eq!(
+        delta_dirs.len(),
+        2,
+        "## Delta must have exactly 2 directives"
+    );
 
     let kinds: Vec<_> = delta_dirs.iter().map(|d| d.kind).collect();
     assert!(kinds.contains(&DirectiveKind::DerivedFrom));
@@ -177,12 +181,10 @@ fn multi_doc_bidirectional_references_become_two_edges() {
     let graph = Graph::from_directives(&directives);
 
     let a_to_b = graph.edges.iter().filter(|e| {
-        e.source.section.as_deref() == Some("alpha")
-            && e.target.section.as_deref() == Some("gamma")
+        e.source.section.as_deref() == Some("alpha") && e.target.section.as_deref() == Some("gamma")
     });
     let b_to_a = graph.edges.iter().filter(|e| {
-        e.source.section.as_deref() == Some("gamma")
-            && e.target.section.as_deref() == Some("alpha")
+        e.source.section.as_deref() == Some("gamma") && e.target.section.as_deref() == Some("alpha")
     });
     assert_eq!(a_to_b.count(), 1);
     assert_eq!(b_to_a.count(), 1);
@@ -210,8 +212,7 @@ fn validate_detects_missing_file() {
         .unwrap();
 
     let target = missing_file.target_file.as_ref().unwrap();
-    let err = resolve::validate_target(target, missing_file.target_section.as_deref())
-        .unwrap_err();
+    let err = resolve::validate_target(target, missing_file.target_section.as_deref()).unwrap_err();
     assert!(
         matches!(err, ResolveError::MissingFile(_)),
         "expected MissingFile, got: {err}"
@@ -229,8 +230,8 @@ fn validate_detects_missing_section() {
         .unwrap();
 
     let target = missing_section.target_file.as_ref().unwrap();
-    let err = resolve::validate_target(target, missing_section.target_section.as_deref())
-        .unwrap_err();
+    let err =
+        resolve::validate_target(target, missing_section.target_section.as_deref()).unwrap_err();
     assert!(
         matches!(err, ResolveError::MissingSection { .. }),
         "expected MissingSection, got: {err}"
@@ -306,10 +307,7 @@ fn dup_sections_validate_passes_for_both_targets() {
 
     for d in &directives {
         // Same-file references have target_file == None; resolve against source file.
-        let target_file = d
-            .target_file
-            .as_ref()
-            .unwrap_or(&d.source_file);
+        let target_file = d.target_file.as_ref().unwrap_or(&d.source_file);
         resolve::validate_target(target_file, d.target_section.as_deref())
             .unwrap_or_else(|e| panic!("unexpected error for {:?}: {e}", d.target_section));
     }
@@ -325,8 +323,7 @@ fn dup_sections_graph_has_distinct_nodes_for_each_usage() {
         .nodes
         .iter()
         .filter(|n| {
-            n.section.as_deref() == Some("usage")
-                || n.section.as_deref() == Some("usage-1")
+            n.section.as_deref() == Some("usage") || n.section.as_deref() == Some("usage-1")
         })
         .collect();
     assert_eq!(

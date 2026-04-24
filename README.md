@@ -1,5 +1,7 @@
 # tree-sitter-markdown (fork) + md-depgraph
 
+[![CI](https://github.com/wataru-manji/treesitter-markdown/actions/workflows/ci.yml/badge.svg)](https://github.com/wataru-manji/treesitter-markdown/actions/workflows/ci.yml)
+
 A [fork](https://github.com/tree-sitter-grammars/tree-sitter-markdown) of tree-sitter-markdown with **dependency directives** added, plus a toolset to describe, extract, and graph semantic dependencies between Markdown documents and sections using HTML comments.
 
 ## Directive Syntax
@@ -129,6 +131,18 @@ devbox run graph -- crates/md-depgraph/tests/fixtures/project --format dot
 ```bash
 git fetch upstream-ts-md
 git subtree pull --prefix=vendor/tree-sitter-markdown upstream-ts-md HEAD --squash
+```
+
+### Editing the Grammar
+
+`src/parser.c` is checked in — `cargo build` works without running `tree-sitter generate`.
+If you modify `grammar.js` or `src/scanner.c`, regenerate and commit the parser:
+
+```bash
+# Inside devbox shell, from vendor/tree-sitter-markdown/tree-sitter-markdown/
+devbox run generate   # runs tree-sitter generate
+git add vendor/tree-sitter-markdown
+git commit -m "chore: regenerate parser after grammar change"
 ```
 
 ## Roadmap

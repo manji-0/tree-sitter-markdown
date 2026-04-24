@@ -91,8 +91,7 @@ mod tests {
 
     #[test]
     fn parse_same_file_anchor() {
-        let (file, section) =
-            parse_target("#my section", Path::new("/docs/a.md")).unwrap();
+        let (file, section) = parse_target("#my section", Path::new("/docs/a.md")).unwrap();
         assert!(file.is_none());
         assert_eq!(section.as_deref(), Some("my-section"));
     }
@@ -107,8 +106,7 @@ mod tests {
 
     #[test]
     fn parse_path_only() {
-        let (file, section) =
-            parse_target("./other.md", Path::new("/docs/a.md")).unwrap();
+        let (file, section) = parse_target("./other.md", Path::new("/docs/a.md")).unwrap();
         assert!(file.is_some());
         assert!(section.is_none());
     }
@@ -117,5 +115,40 @@ mod tests {
     fn absolute_path_rejected() {
         let err = parse_target("/absolute/path.md", Path::new("/docs/a.md"));
         assert!(matches!(err, Err(ResolveError::AbsolutePath(_))));
+    }
+
+    #[test]
+    fn empty_raw_target_is_malformed() {
+        let err = parse_target("", Path::new("/docs/a.md"));
+        assert!(matches!(err, Err(ResolveError::MalformedTarget(_))));
+    }
+
+    #[test]
+    fn hash_only_is_malformed() {
+        let err = parse_target("#", Path::new("/docs/a.md"));
+        assert!(matches!(err, Err(ResolveError::MalformedTarget(_))));
+    }
+
+    #[test]
+    fn path_with_empty_anchor_yields_no_section() {
+        let (file, section) = parse_target("other.md#", Path::new("/docs/a.md")).unwrap();
+        assert!(file.is_some());
+        assert!(section.is_none());
+    }
+
+    #[test]
+    fn leading_and_trailing_whitespace_trimmed() {
+        let (file, section) = parse_target("  ./doc.md#intro  ", Path::new("/docs/a.md")).unwrap();
+        assert!(file.is_some());
+        assert_eq!(section.as_deref(), Some("intro"));
+    }
+
+    #[test]
+    fn dotdot_relative_path_is_accepted() {
+        let (file, section) = parse_target("../spec.md", Path::new("/docs/sub/a.md")).unwrap();
+        assert!(file.is_some());
+        assert!(section.is_none());
+        // Resolved path should contain spec.md at the end.
+        assert!(file.unwrap().ends_with("spec.md"));
     }
 }

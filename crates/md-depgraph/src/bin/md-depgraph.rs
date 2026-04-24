@@ -6,7 +6,11 @@ use clap::{Parser, Subcommand, ValueEnum};
 use md_depgraph::{extract, graph::Graph, resolve, walker};
 
 #[derive(Parser)]
-#[command(name = "md-depgraph", version, about = "Extract dependency directives from Markdown")]
+#[command(
+    name = "md-depgraph",
+    version,
+    about = "Extract dependency directives from Markdown"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -105,7 +109,7 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn collect_directives(path: &PathBuf) -> anyhow::Result<Vec<md_depgraph::Directive>> {
+fn collect_directives(path: &std::path::Path) -> anyhow::Result<Vec<md_depgraph::Directive>> {
     let mut directives = Vec::new();
     if path.is_file() {
         directives.extend(

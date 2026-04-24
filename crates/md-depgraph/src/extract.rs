@@ -20,8 +20,7 @@ pub fn headings_in_file(source: &[u8]) -> anyhow::Result<Vec<String>> {
 
 /// Extract all directive comments from a single Markdown file.
 pub fn extract_file(path: &Path) -> anyhow::Result<Vec<Directive>> {
-    let source = std::fs::read(path)
-        .with_context(|| format!("reading {}", path.display()))?;
+    let source = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
     extract_bytes(&source, path)
 }
 
@@ -170,5 +169,44 @@ mod tests {
         );
         let dirs = extract(src);
         assert_eq!(dirs.len(), 2);
+    }
+
+    #[test]
+    fn setext_heading_infers_source_section() {
+        let src = "My Heading\n==========\n\n<!-- blocked-by #other -->\n";
+        let dirs = extract(src);
+        assert_eq!(dirs.len(), 1);
+        assert_eq!(dirs[0].source_section.as_deref(), Some("my-heading"));
+    }
+
+    #[test]
+    fn cjk_heading_slug_passes_through() {
+        let src = "## 設計方針\n\n<!-- derived-from #rationale -->\n";
+        let dirs = extract(src);
+        assert_eq!(dirs.len(), 1);
+        assert_eq!(dirs[0].source_section.as_deref(), Some("設計方針"));
+    }
+
+    #[test]
+    fn directive_without_preceding_heading_has_no_source_section() {
+        let src = "<!-- constrained-by ./spec.md -->\n";
+        let dirs = extract(src);
+        assert_eq!(dirs.len(), 1);
+        assert!(dirs[0].source_section.is_none());
+    }
+
+    #[test]
+    fn extract_jsonl_format_all_directives() {
+        let src = concat!(
+            "## A\n\n<!-- constrained-by ./b.md -->\n",
+            "## B\n\n<!-- derived-from #a -->\n",
+        );
+        let dirs = extract(src);
+        assert_eq!(dirs.len(), 2);
+        for d in &dirs {
+            let json = serde_json::to_string(d).unwrap();
+            let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+            assert!(v["kind"].is_string());
+        }
     }
 }
